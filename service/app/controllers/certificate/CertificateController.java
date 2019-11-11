@@ -27,7 +27,7 @@ public class CertificateController extends BaseController {
 
   public CompletionStage<Result> addCertificate(Http.Request httpRequest) {
     return handleRequest(
-        CourseActorOperations.ADD_CERTIFICATE.getValue(),
+        CourseActorOperations.ADD_BATCH_CERTIFICATE.getValue(),
         httpRequest.body().asJson(),
         (request) -> {
           Request req = (Request) request;
@@ -38,22 +38,9 @@ public class CertificateController extends BaseController {
         httpRequest);
   }
 
-  public CompletionStage<Result> getCertificateList(Http.Request httpRequest) {
-    return handleRequest(
-        CourseActorOperations.GET_CERTIFICATE.getValue(),
-        httpRequest.body().asJson(),
-        (request) -> {
-          Request req = (Request) request;
-          new CertificateRequestValidator().validateGetCertificateListRequest(req);
-          return null;
-        },
-        getAllRequestHeaders(httpRequest),
-        httpRequest);
-  }
-
   public CompletionStage<Result> deleteCertificate(Http.Request httpRequest) {
     return handleRequest(
-        CourseActorOperations.DELETE_CERTIFICATE.getValue(),
+        CourseActorOperations.DELETE_BATCH_CERTIFICATE.getValue(),
         httpRequest.body().asJson(),
         (request) -> {
           Request req = (Request) request;

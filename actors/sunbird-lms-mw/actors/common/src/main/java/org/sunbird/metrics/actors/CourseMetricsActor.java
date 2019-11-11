@@ -40,7 +40,6 @@ import org.sunbird.common.util.CloudStorageUtil.CloudStorageType;
 import org.sunbird.dto.SearchDTO;
 import org.sunbird.learner.constants.CourseJsonKey;
 import org.sunbird.learner.util.ContentSearchUtil;
-import org.sunbird.learner.util.Util;
 import org.sunbird.userorg.UserOrgService;
 import org.sunbird.userorg.UserOrgServiceImpl;
 import scala.concurrent.Future;
@@ -183,12 +182,10 @@ public class CourseMetricsActor extends BaseMetricsActor {
     Map<String, Object> filter = new HashMap<>();
     filter.put(JsonKey.BATCH_ID, batchId);
     filter.put(JsonKey.USER_ID, userIds);
-    Map<String, Object> nestedFilter = new HashMap<>();
-    nestedFilter.put(
-        CourseJsonKey.CERTIFICATES_DOT_NAME,
-        ProjectUtil.getConfigValue(CourseJsonKey.COURSE_COMPLETION_CERTIFICATE));
+    List<String> mandatoryFields = new ArrayList<>();
+    mandatoryFields.add(CourseJsonKey.CERTIFICATES);
     searchDTO.getAdditionalProperties().put(JsonKey.FILTERS, filter);
-    searchDTO.getAdditionalProperties().put(JsonKey.NESTED_KEY_FILTER, nestedFilter);
+    searchDTO.getAdditionalProperties().put(JsonKey.EXISTS, mandatoryFields);
     searchDTO.setFields(Arrays.asList(JsonKey.USER_ID, CourseJsonKey.CERTIFICATES));
     Future<Map<String, Object>> resultF =
         esService.search(searchDTO, EsType.usercourses.getTypeName());
@@ -305,32 +302,38 @@ public class CourseMetricsActor extends BaseMetricsActor {
     searchDTO.getAdditionalProperties().put(JsonKey.FILTERS, filter);
 
     Future<Map<String, Object>> assessmentBatchResultF =
-            esService.search(searchDTO, EsType.cbatchassessment.getTypeName());
+        esService.search(searchDTO, EsType.cbatchassessment.getTypeName());
     Map<String, Object> assessmentBatchResult =
-            (Map<String, Object>) ElasticSearchHelper.getResponseFromFuture(assessmentBatchResultF);
-    String assessmentReportSignedUrl = null ;
+        (Map<String, Object>) ElasticSearchHelper.getResponseFromFuture(assessmentBatchResultF);
+    String assessmentReportSignedUrl = null;
     ProjectLogger.log(
-            "CourseMetricsActor:courseProgressMetricsReport: assessmentBatchResult="
-                    + assessmentBatchResult,
-            LoggerEnum.INFO.name());
-    if (MapUtils.isNotEmpty(assessmentBatchResult) && CollectionUtils.isNotEmpty((List<Map<String, Object>>) assessmentBatchResult.get(JsonKey.CONTENT))) {
-      List<Map<String, Object>> content = (List<Map<String, Object>>) assessmentBatchResult.get(JsonKey.CONTENT);
+        "CourseMetricsActor:courseProgressMetricsReport: assessmentBatchResult="
+            + assessmentBatchResult,
+        LoggerEnum.INFO.name());
+    if (MapUtils.isNotEmpty(assessmentBatchResult)
+        && CollectionUtils.isNotEmpty(
+            (List<Map<String, Object>>) assessmentBatchResult.get(JsonKey.CONTENT))) {
+      List<Map<String, Object>> content =
+          (List<Map<String, Object>>) assessmentBatchResult.get(JsonKey.CONTENT);
       Map<String, Object> batchData = content.get(0);
       String reportLocation = (String) batchData.get(JsonKey.ASSESSMENT_REPORT_BLOB_URL);
       ProjectLogger.log(
-                "CourseMetricsActor:courseProgressMetricsReport: reportLocation="
-                        + reportLocation,
-                LoggerEnum.INFO.name());
+          "CourseMetricsActor:courseProgressMetricsReport: reportLocation=" + reportLocation,
+          LoggerEnum.INFO.name());
       if (isNotNull(reportLocation)) {
-        String courseAssessmentsReportFolder = ProjectUtil.getConfigValue(JsonKey.SUNBIRD_ASSESSMENT_REPORT_FOLDER);
-        String courseAssessmentsreportPath = courseAssessmentsReportFolder + File.separator + "report-" + batchId + ".csv";
+        String courseAssessmentsReportFolder =
+            ProjectUtil.getConfigValue(JsonKey.SUNBIRD_ASSESSMENT_REPORT_FOLDER);
+        String courseAssessmentsreportPath =
+            courseAssessmentsReportFolder + File.separator + "report-" + batchId + ".csv";
         ProjectLogger.log(
-                  "CourseMetricsActor:courseProgressMetricsReport: courseMetricsContainer="
-                          + courseMetricsContainer
-                          + ", courseAssessmentsreportPath="
-                          + courseAssessmentsreportPath,
-                  LoggerEnum.INFO.name());
-        assessmentReportSignedUrl = CloudStorageUtil.getAnalyticsSignedUrl(CloudStorageType.AZURE, courseMetricsContainer, courseAssessmentsreportPath);
+            "CourseMetricsActor:courseProgressMetricsReport: courseMetricsContainer="
+                + courseMetricsContainer
+                + ", courseAssessmentsreportPath="
+                + courseAssessmentsreportPath,
+            LoggerEnum.INFO.name());
+        assessmentReportSignedUrl =
+            CloudStorageUtil.getAnalyticsSignedUrl(
+                CloudStorageType.AZURE, courseMetricsContainer, courseAssessmentsreportPath);
       }
     }
 

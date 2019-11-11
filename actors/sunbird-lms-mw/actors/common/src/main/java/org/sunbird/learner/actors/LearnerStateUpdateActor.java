@@ -1,11 +1,10 @@
 package org.sunbird.learner.actors;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.stream.Collectors;
-
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.collections.MapUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -74,26 +73,26 @@ public class LearnerStateUpdateActor extends BaseActor {
     if (request.getOperation().equalsIgnoreCase(ActorOperations.ADD_CONTENT.getValue())) {
       String userId = (String) request.getRequest().get(JsonKey.USER_ID);
       List<Map<String, Object>> assessments =
-              (List<Map<String, Object>>) request.getRequest().get(JsonKey.ASSESSMENT_EVENTS);
+          (List<Map<String, Object>>) request.getRequest().get(JsonKey.ASSESSMENT_EVENTS);
       if (CollectionUtils.isNotEmpty(assessments)) {
         Map<String, List<Map<String, Object>>> batchAssessmentList =
-          assessments
-            .stream()
-            .filter(x -> StringUtils.isNotBlank((String) x.get("batchId")))
-            .collect(
-              Collectors.groupingBy(
-                x -> {
-                  return (String) x.get("batchId");
-                }));
+            assessments
+                .stream()
+                .filter(x -> StringUtils.isNotBlank((String) x.get("batchId")))
+                .collect(
+                    Collectors.groupingBy(
+                        x -> {
+                          return (String) x.get("batchId");
+                        }));
         List<String> batchIds = batchAssessmentList.keySet().stream().collect(Collectors.toList());
         Map<String, List<Map<String, Object>>> batches =
-          getBatches(batchIds)
-            .stream()
-              .collect(
-                Collectors.groupingBy(
-                  x -> {
-                    return (String) x.get("batchId");
-                  }));
+            getBatches(batchIds)
+                .stream()
+                .collect(
+                    Collectors.groupingBy(
+                        x -> {
+                          return (String) x.get("batchId");
+                        }));
         Map<String, Object> respMessages = new HashMap<>();
         for (Map.Entry<String, List<Map<String, Object>>> input : batchAssessmentList.entrySet()) {
           String batchId = input.getKey();
@@ -101,25 +100,25 @@ public class LearnerStateUpdateActor extends BaseActor {
             Map<String, Object> batchDetails = batches.get(batchId).get(0);
             int status = getInteger(batchDetails.get("status"), 0);
             if (status == 1) {
-              input.getValue().stream().forEach(
-                data -> {
-                  try {
-                    syncAssessmentData(data);
-                    updateMessages(respMessages, batchId, JsonKey.SUCCESS);
-                  }
-                  catch (Exception e) {
-                    ProjectLogger.log("Error syncing assessment data: " + e.getMessage(), e);
-                  }
-                });
-            }
-            else {
+              input
+                  .getValue()
+                  .stream()
+                  .forEach(
+                      data -> {
+                        try {
+                          syncAssessmentData(data);
+                          updateMessages(respMessages, batchId, JsonKey.SUCCESS);
+                        } catch (Exception e) {
+                          ProjectLogger.log("Error syncing assessment data: " + e.getMessage(), e);
+                        }
+                      });
+            } else {
               updateMessages(
-                      respMessages, ContentUpdateResponseKeys.NOT_A_ON_GOING_BATCH.name(), batchId);
+                  respMessages, ContentUpdateResponseKeys.NOT_A_ON_GOING_BATCH.name(), batchId);
             }
-          }
-          else {
+          } else {
             updateMessages(
-                    respMessages, ContentUpdateResponseKeys.BATCH_NOT_EXISTS.name(), batchId);
+                respMessages, ContentUpdateResponseKeys.BATCH_NOT_EXISTS.name(), batchId);
           }
         }
         Response response = new Response();
@@ -263,7 +262,6 @@ public class LearnerStateUpdateActor extends BaseActor {
       Date accessTime = parseDate(existingContent.get(JsonKey.LAST_ACCESS_TIME), simpleDateFormat);
       inputContent.put(JsonKey.LAST_ACCESS_TIME, compareTime(accessTime, inputAccessTime));
 
-      int existingStatus = getInteger(existingContent.get(JsonKey.PROGRESS), 0);
       int inputProgress = getInteger(inputContent.get(JsonKey.PROGRESS), 0);
       int existingProgress = getInteger(existingContent.get(JsonKey.PROGRESS), 0);
       int progress = Collections.max(Arrays.asList(inputProgress, existingProgress));
@@ -272,20 +270,21 @@ public class LearnerStateUpdateActor extends BaseActor {
           parseDate(existingContent.get(JsonKey.LAST_COMPLETED_TIME), simpleDateFormat);
 
       int completedCount = getInteger(existingContent.get(JsonKey.COMPLETED_COUNT), 0);
+      int existingStatus = getInteger(existingContent.get(JsonKey.STATUS), 0);
       if (inputStatus >= existingStatus) {
-        if (inputStatus == 2) {
+        if (inputStatus >= 2) {
           completedCount = completedCount + 1;
           inputContent.put(JsonKey.PROGRESS, 100);
           inputContent.put(
               JsonKey.LAST_COMPLETED_TIME, compareTime(completedDate, inputCompletedDate));
+          inputContent.put(JsonKey.STATUS, 2);
         }
         inputContent.put(JsonKey.COMPLETED_COUNT, completedCount);
-      }
-      if (completedCount >= 1) {
-        inputContent.put(JsonKey.STATUS, 2);
+      } else {
+        inputContent.put(JsonKey.STATUS, existingStatus);
       }
     } else {
-      if (inputStatus == 2) {
+      if (inputStatus >= 2) {
         inputContent.put(JsonKey.COMPLETED_COUNT, 1);
         inputContent.put(JsonKey.PROGRESS, 100);
         inputContent.put(JsonKey.LAST_COMPLETED_TIME, compareTime(null, inputCompletedDate));
@@ -296,7 +295,6 @@ public class LearnerStateUpdateActor extends BaseActor {
       inputContent.put(JsonKey.LAST_ACCESS_TIME, compareTime(null, inputAccessTime));
     }
     inputContent.put(JsonKey.LAST_UPDATED_TIME, ProjectUtil.getFormattedDate());
-    inputContent.put("status", inputStatus);
     inputContent.put("userId", userId);
     return inputContent;
   }
@@ -459,9 +457,9 @@ public class LearnerStateUpdateActor extends BaseActor {
       KafkaClient.send(mapper.writeValueAsString(assessmentData), topic);
     } else {
       throw new ProjectCommonException(
-              "BE_JOB_REQUEST_EXCEPTION",
-              "Invalid topic id.",
-              ResponseCode.CLIENT_ERROR.getResponseCode());
+          "BE_JOB_REQUEST_EXCEPTION",
+          "Invalid topic id.",
+          ResponseCode.CLIENT_ERROR.getResponseCode());
     }
   }
 }
