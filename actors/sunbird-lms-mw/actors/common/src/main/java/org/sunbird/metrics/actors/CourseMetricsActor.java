@@ -333,7 +333,7 @@ public class CourseMetricsActor extends BaseMetricsActor {
                 + courseAssessmentsreportPath,
             LoggerEnum.INFO.name());
         assessmentReportSignedUrl =
-            CloudStorageUtil.getAnalyticsSignedUrl(
+            CloudStorageUtil.getSignedUrl(
                 CloudStorageType.AZURE, courseMetricsContainer, courseAssessmentsreportPath);
       }
     }
@@ -345,8 +345,7 @@ public class CourseMetricsActor extends BaseMetricsActor {
             + reportPath,
         LoggerEnum.INFO.name());
     String signedUrl =
-        CloudStorageUtil.getAnalyticsSignedUrl(
-            CloudStorageType.AZURE, courseMetricsContainer, reportPath);
+        CloudStorageUtil.getSignedUrl(CloudStorageType.AZURE, courseMetricsContainer, reportPath);
 
     Response response = new Response();
     response.put(JsonKey.SIGNED_URL, signedUrl);
